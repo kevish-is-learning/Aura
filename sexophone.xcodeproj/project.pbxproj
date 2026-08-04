@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		0AA4D182302279EC00A00886 /* MediaRemoteAdapter in Embed Frameworks */ = {isa = PBXBuildFile; productRef = AA000002000000000000BB02 /* MediaRemoteAdapter */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		AA000001000000000000AA01 /* SkyLightWindow in Frameworks */ = {isa = PBXBuildFile; productRef = AA000001000000000000AA02 /* SkyLightWindow */; };
+		AA000002000000000000BB01 /* MediaRemoteAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = AA000002000000000000BB02 /* MediaRemoteAdapter */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		0A6AB07C30211C56009EDFD1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -22,6 +28,20 @@
 			remoteInfo = sexophone;
 		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0AA4D183302279EC00A00886 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				0AA4D182302279EC00A00886 /* MediaRemoteAdapter in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		0A6AB06C30211C55009EDFD1 /* sexophone.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = sexophone.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -52,6 +72,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA000001000000000000AA01 /* SkyLightWindow in Frameworks */,
+				AA000002000000000000BB01 /* MediaRemoteAdapter in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -102,6 +124,7 @@
 				0A6AB06830211C55009EDFD1 /* Sources */,
 				0A6AB06930211C55009EDFD1 /* Frameworks */,
 				0A6AB06A30211C55009EDFD1 /* Resources */,
+				0AA4D183302279EC00A00886 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -112,6 +135,8 @@
 			);
 			name = sexophone;
 			packageProductDependencies = (
+				AA000001000000000000AA02 /* SkyLightWindow */,
+				AA000002000000000000BB02 /* MediaRemoteAdapter */,
 			);
 			productName = sexophone;
 			productReference = 0A6AB06C30211C55009EDFD1 /* sexophone.app */;
@@ -195,6 +220,10 @@
 			);
 			mainGroup = 0A6AB06330211C54009EDFD1;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AA000001000000000000AA03 /* XCRemoteSwiftPackageReference "SkyLightWindow" */,
+				0AA4D181302279DD00A00886 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0A6AB06D30211C55009EDFD1 /* Products */;
 			projectDirPath = "";
@@ -390,9 +419,8 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -432,9 +460,8 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -605,6 +632,46 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		0AA4D181302279DD00A00886 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ejbills/mediaremote-adapter.git";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+		AA000001000000000000AA03 /* XCRemoteSwiftPackageReference "SkyLightWindow" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Lakr233/SkyLightWindow";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		AA000002000000000000BB03 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ejbills/mediaremote-adapter.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA000001000000000000AA02 /* SkyLightWindow */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA000001000000000000AA03 /* XCRemoteSwiftPackageReference "SkyLightWindow" */;
+			productName = SkyLightWindow;
+		};
+		AA000002000000000000BB02 /* MediaRemoteAdapter */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA000002000000000000BB03 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */;
+			productName = MediaRemoteAdapter;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 0A6AB06430211C54009EDFD1 /* Project object */;
 }
