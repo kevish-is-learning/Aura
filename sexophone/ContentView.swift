@@ -14,73 +14,89 @@ import SkyLightWindow
 struct LiquidGlassModifier: ViewModifier {
     var cornerRadius: CGFloat
     var opacity: Double
-    
+
     func body(content: Content) -> some View {
         content
             .background {
-                ZStack {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .opacity(opacity)
-                    
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    .white.opacity(0.35),
-                                    .white.opacity(0.08),
-                                    .clear,
-                                    .white.opacity(0.15)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                }
+                fallbackGlassLayer
             }
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                .white.opacity(0.6),
-                                .white.opacity(0.15),
-                                .clear,
-                                .white.opacity(0.3)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1.2
+            .overlay {
+                edgeHighlights
+            }
+            .shadow(color: .black.opacity(0.26), radius: 24, x: 0, y: 14)
+            .shadow(color: .white.opacity(0.10), radius: 3, x: 0, y: -1)
+    }
+
+    private var fallbackGlassLayer: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .opacity(opacity)
+
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.white.opacity(0.08))
+
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.34), location: 0.0),
+                            .init(color: .white.opacity(0.10), location: 0.20),
+                            .init(color: .clear, location: 0.55),
+                            .init(color: .black.opacity(0.12), location: 1.0)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
-            )
-            .shadow(color: .black.opacity(0.3), radius: 25, x: 0, y: 12)
+                )
+                .blendMode(.plusLighter)
+        }
+    }
+
+    private var edgeHighlights: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.86), location: 0.0),
+                            .init(color: .white.opacity(0.34), location: 0.22),
+                            .init(color: .clear, location: 0.56),
+                            .init(color: .white.opacity(0.28), location: 1.0)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.1
+                )
+
+            RoundedRectangle(cornerRadius: max(0, cornerRadius - 1), style: .continuous)
+                .strokeBorder(.black.opacity(0.10), lineWidth: 0.6)
+                .padding(1)
+        }
     }
 }
 
 extension View {
-    func glassEffect(cornerRadius: CGFloat = 24, opacity: Double = 0.85) -> some View {
-        self.modifier(LiquidGlassModifier(cornerRadius: cornerRadius, opacity: opacity))
+    func liquidGlass(cornerRadius: CGFloat = 24, opacity: Double = 0.76) -> some View {
+        modifier(LiquidGlassModifier(cornerRadius: cornerRadius, opacity: opacity))
     }
 }
 
 // MARK: - 2. Fluid Blending Container (Metaball Morphing)
 
-struct GlassEffectContainer<Content: View>: View {
+struct MetaballEffectContainer<Content: View>: View {
     var blurRadius: CGFloat
-    var thresholdCutoff: CGFloat
     @ViewBuilder var content: Content
 
     init(
         blurRadius: CGFloat = 22,
-        thresholdCutoff: CGFloat = 12,
         @ViewBuilder content: () -> Content
     ) {
         self.blurRadius = blurRadius
-        self.thresholdCutoff = thresholdCutoff
         self.content = content()
     }
-    
+
     var body: some View {
         if #available(macOS 14.0, iOS 17.0, *) {
             Rectangle()
@@ -89,7 +105,7 @@ struct GlassEffectContainer<Content: View>: View {
                     Canvas { context, size in
                         context.addFilter(.alphaThreshold(min: 0.5, color: .white))
                         context.addFilter(.blur(radius: blurRadius))
-                        
+
                         if let resolvedContent = context.resolveSymbol(id: 0) {
                             context.draw(resolvedContent, at: CGPoint(x: size.width / 2, y: size.height / 2))
                         }
@@ -129,15 +145,15 @@ struct ContentView: View {
             // MARK: - Album Artwork & Liquid Metaball Background
             ZStack {
                 // Liquid Metaball Glow
-                GlassEffectContainer(blurRadius: 18) {
+                MetaballEffectContainer(blurRadius: 18) {
                     ZStack {
                         Circle()
-                            .fill(isPlaying ? Color.pink.opacity(0.8) : Color.blue.opacity(0.5))
+                            .fill(isPlaying ? Color.white.opacity(0.52) : Color.cyan.opacity(0.28))
                             .frame(width: 140, height: 140)
                             .offset(liquidOffset)
                         
                         Circle()
-                            .fill(isPlaying ? Color.purple.opacity(0.8) : Color.cyan.opacity(0.5))
+                            .fill(isPlaying ? Color.cyan.opacity(0.34) : Color.white.opacity(0.30))
                             .frame(width: 100, height: 100)
                             .offset(x: -liquidOffset.width * 0.8, y: -liquidOffset.height * 0.8)
                     }
@@ -246,7 +262,7 @@ struct ContentView: View {
                         Circle()
                             .fill(.white.opacity(0.2))
                             .frame(width: 52, height: 52)
-                            .glassEffect(cornerRadius: 26, opacity: 0.6)
+                            .liquidGlass(cornerRadius: 26, opacity: 0.68)
 
                         Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 22, weight: .bold))
@@ -279,12 +295,12 @@ struct ContentView: View {
                 .foregroundStyle(.white.opacity(0.6))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 5)
-                .glassEffect(cornerRadius: 12, opacity: 0.4)
+                .liquidGlass(cornerRadius: 12, opacity: 0.58)
             }
         }
         .padding(24)
         .frame(width: 280)
-        .glassEffect(cornerRadius: 28, opacity: 0.85)
+        .liquidGlass(cornerRadius: 30, opacity: 0.74)
         .onAppear {
             startListening()
             configureWindow()
