@@ -139,10 +139,14 @@ struct ContentView: View {
     // MARK: - Central Playback Manager State
     @StateObject private var manager = PlaybackManager()
 
+    // MARK: - App Storage Settings
+    @AppStorage("playerVisibilityMode") private var visibilityMode: PlayerVisibilityMode = .lockScreenOnly
+
     // MARK: - Local UI State
     @State private var isSeeking: Bool = false
     @State private var seekProgress: CGFloat = 0
     @State private var liquidOffset: CGSize = .zero
+    @State private var isScreenLocked: Bool = false
 
     // MARK: - Body
     var body: some View {
@@ -163,6 +167,12 @@ struct ContentView: View {
             configureWindow()
             setupLockScreenListeners()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("PlayerVisibilityModeChanged"))) { _ in
+            updateWindowVisibility()
+        }
+        .onChange(of: visibilityMode) { _ in
+            updateWindowVisibility()
+        }
         .moveToSky()
     }
 
@@ -175,9 +185,43 @@ struct ContentView: View {
                 .liquidGlass(cornerRadius: 58, opacity: 0.68)
 
             VStack(spacing: 14) {
-                HStack {
+                HStack(spacing: 8) {
                     sourceAppLabel
                     Spacer()
+
+                    // Settings Menu for Display Mode
+                    Menu {
+                        Section("Display Mode") {
+                            Button {
+                                visibilityMode = .lockScreenOnly
+                            } label: {
+                                Label(
+                                    PlayerVisibilityMode.lockScreenOnly.title,
+                                    systemImage: visibilityMode == .lockScreenOnly ? "checkmark.circle.fill" : "lock.display"
+                                )
+                            }
+
+                            Button {
+                                visibilityMode = .alwaysOnScreen
+                            } label: {
+                                Label(
+                                    PlayerVisibilityMode.alwaysOnScreen.title,
+                                    systemImage: visibilityMode == .alwaysOnScreen ? "checkmark.circle.fill" : "display.on.fly"
+                                )
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.65))
+                            .padding(6)
+                            .background(
+                                Circle()
+                                    .fill(.white.opacity(0.14))
+                            )
+                    }
+                    .menuStyle(.borderlessButton)
+                    .accessibilityLabel("Display Mode Settings")
 
                     // Lyrics Toggle Button
                     Button {
@@ -294,6 +338,27 @@ struct ContentView: View {
 
         }
         .frame(width: 620, height: 286)
+        .contextMenu {
+            Section("Player Display Mode") {
+                Button {
+                    visibilityMode = .lockScreenOnly
+                } label: {
+                    Label(
+                        PlayerVisibilityMode.lockScreenOnly.title,
+                        systemImage: visibilityMode == .lockScreenOnly ? "checkmark" : "lock.display"
+                    )
+                }
+
+                Button {
+                    visibilityMode = .alwaysOnScreen
+                } label: {
+                    Label(
+                        PlayerVisibilityMode.alwaysOnScreen.title,
+                        systemImage: visibilityMode == .alwaysOnScreen ? "checkmark" : "display.on.fly"
+                    )
+                }
+            }
+        }
     }
 
     private var sourceAppLabel: some View {
@@ -451,8 +516,7 @@ struct ContentView: View {
         window.level = .floating
 
         DispatchQueue.main.async {
-            window.setIsVisible(false)
-            window.orderOut(nil)
+            updateWindowVisibility()
         }
     }
 
@@ -464,11 +528,9 @@ struct ContentView: View {
             object: nil,
             queue: .main
         ) { _ in
-            print("[LockScreen] Screen Locked -> Showing Player")
-            if let window = NSApplication.shared.windows.first {
-                window.setIsVisible(true)
-                window.orderFrontRegardless()
-            }
+            print("[LockScreen] Screen Locked")
+            isScreenLocked = true
+            updateWindowVisibility()
         }
 
         dnc.addObserver(
@@ -476,8 +538,26 @@ struct ContentView: View {
             object: nil,
             queue: .main
         ) { _ in
-            print("[LockScreen] Screen Unlocked -> Hiding Player")
-            if let window = NSApplication.shared.windows.first {
+            print("[LockScreen] Screen Unlocked")
+            isScreenLocked = false
+            updateWindowVisibility()
+        }
+    }
+
+    private func updateWindowVisibility() {
+        guard let window = NSApplication.shared.windows.first else { return }
+        switch visibilityMode {
+        case .alwaysOnScreen:
+            print("[PlayerVisibility] Mode: Always on All Screens -> Showing Window")
+            window.setIsVisible(true)
+            window.orderFrontRegardless()
+        case .lockScreenOnly:
+            if isScreenLocked {
+                print("[PlayerVisibility] Mode: Lock Screen Only (Screen Locked) -> Showing Window")
+                window.setIsVisible(true)
+                window.orderFrontRegardless()
+            } else {
+                print("[PlayerVisibility] Mode: Lock Screen Only (Screen Unlocked) -> Hiding Window")
                 window.orderOut(nil)
             }
         }
