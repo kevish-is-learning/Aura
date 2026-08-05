@@ -2,11 +2,10 @@
 //  ContentView.swift
 //  sexophone
 //
-//  Apple Music Liquid Glass Floating Player with Metaball Fluid Morphing
+//  Apple Music Liquid Glass Floating Player with Synchronized Lyrics
 //
 
 import SwiftUI
-import MediaRemoteAdapter
 import SkyLightWindow
 
 // MARK: - 1. Glass Effect Modifier
@@ -78,8 +77,22 @@ struct LiquidGlassModifier: ViewModifier {
 }
 
 extension View {
+    @ViewBuilder
+    func applyGlassBackground() -> some View {
+        #if os(visionOS)
+        if #available(visionOS 1.0, *) {
+            self.glassBackgroundEffect()
+        } else {
+            self
+        }
+        #else
+        self
+        #endif
+    }
+
     func liquidGlass(cornerRadius: CGFloat = 24, opacity: Double = 0.76) -> some View {
         modifier(LiquidGlassModifier(cornerRadius: cornerRadius, opacity: opacity))
+            .applyGlassBackground()
     }
 }
 
@@ -119,197 +132,302 @@ struct MetaballEffectContainer<Content: View>: View {
     }
 }
 
-// MARK: - 3. Main Player View with Liquid Glass Effect
+// MARK: - 3. Main Player View with Liquid Glass & Synchronized Lyrics
 
 struct ContentView: View {
 
-    // MARK: - State
-    @State private var title: String = "Nothing Playing"
-    @State private var artist: String = ""
-    @State private var album: String = ""
-    @State private var appName: String = ""
-    @State private var isPlaying: Bool = false
-    @State private var artwork: NSImage? = nil
-    @State private var elapsed: Double = 0
-    @State private var duration: Double = 0
-    @State private var isHovering: Bool = false
-    @State private var liquidOffset: CGSize = .zero
+    // MARK: - Central Playback Manager State
+    @StateObject private var manager = PlaybackManager()
 
-    // MediaRemoteAdapter controller
-    private let controller = MediaController()
+    // MARK: - Local UI State
+    @State private var isSeeking: Bool = false
+    @State private var seekProgress: CGFloat = 0
+    @State private var liquidOffset: CGSize = .zero
 
     // MARK: - Body
     var body: some View {
-        VStack(spacing: 16) {
-            
-            // MARK: - Album Artwork & Liquid Metaball Background
-            ZStack {
-                // Liquid Metaball Glow
-                MetaballEffectContainer(blurRadius: 18) {
-                    ZStack {
-                        Circle()
-                            .fill(isPlaying ? Color.white.opacity(0.52) : Color.cyan.opacity(0.28))
-                            .frame(width: 140, height: 140)
-                            .offset(liquidOffset)
-                        
-                        Circle()
-                            .fill(isPlaying ? Color.cyan.opacity(0.34) : Color.white.opacity(0.30))
-                            .frame(width: 100, height: 100)
-                            .offset(x: -liquidOffset.width * 0.8, y: -liquidOffset.height * 0.8)
-                    }
-                    .frame(width: 220, height: 220)
-                }
-                .blur(radius: 10)
-                
-                // Artwork
-                if let art = artwork {
-                    Image(nsImage: art)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 200, height: 200)
-                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .shadow(color: .black.opacity(0.4), radius: 16, x: 0, y: 10)
-                        .scaleEffect(isPlaying ? 1.0 : 0.94)
-                        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isPlaying)
-                } else {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(.white.opacity(0.06))
-                        .frame(width: 200, height: 200)
-                        .overlay {
-                            Image(systemName: "music.note")
-                                .font(.system(size: 48, weight: .thin))
-                                .foregroundStyle(.white.opacity(0.4))
-                        }
-                }
-            }
-            .frame(width: 220, height: 220)
+        HStack(spacing: 16) {
+            // Player Card
+            playerCardView
 
-            // MARK: - Track & Artist Metadata
-            VStack(spacing: 4) {
-                Text(title)
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .multilineTextAlignment(.center)
-
-                if !artist.isEmpty {
-                    Text(artist)
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.75))
-                        .lineLimit(1)
-                }
-
-                if !album.isEmpty {
-                    Text(album)
-                        .font(.system(size: 12, weight: .regular, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.45))
-                        .lineLimit(1)
-                }
-            }
-            .padding(.horizontal, 10)
-
-            // MARK: - Liquid Progress Bar
-            if duration > 0 {
-                VStack(spacing: 6) {
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            Capsule()
-                                .fill(.white.opacity(0.15))
-                                .frame(height: 5)
-
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [.white.opacity(0.9), .white.opacity(0.6)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .frame(width: max(0, min(geo.size.width * CGFloat(elapsed / duration), geo.size.width)), height: 5)
-                                .shadow(color: .white.opacity(0.5), radius: 4, x: 0, y: 0)
-                        }
-                    }
-                    .frame(height: 5)
-
-                    HStack {
-                        Text(formatTime(elapsed))
-                        Spacer()
-                        Text("-\(formatTime(max(0, duration - elapsed)))")
-                    }
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.5))
-                }
-                .padding(.horizontal, 8)
-            }
-
-            // MARK: - Apple Music Playback Controls
-            HStack(spacing: 36) {
-                Button {
-                    controller.previousTrack()
-                    animateLiquid()
-                } label: {
-                    Image(systemName: "backward.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.white.opacity(0.85))
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    controller.togglePlayPause()
-                    animateLiquid()
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(.white.opacity(0.2))
-                            .frame(width: 52, height: 52)
-                            .liquidGlass(cornerRadius: 26, opacity: 0.68)
-
-                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundStyle(.white)
-                            .offset(x: isPlaying ? 0 : 2)
-                    }
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    controller.nextTrack()
-                    animateLiquid()
-                } label: {
-                    Image(systemName: "forward.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.white.opacity(0.85))
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.top, 4)
-
-            // MARK: - Source App Glass Pill
-            if !appName.isEmpty {
-                HStack(spacing: 5) {
-                    Image(systemName: "wave.3.forward.circle.fill")
-                        .font(.system(size: 11))
-                    Text(appName)
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                }
-                .foregroundStyle(.white.opacity(0.6))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 5)
-                .liquidGlass(cornerRadius: 12, opacity: 0.58)
+            // Synchronized Lyrics Drawer Card (Visible when showLyrics is true)
+            if manager.showLyrics {
+                LyricsView(manager: manager)
+                    .frame(width: 320, height: 286)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
-        .padding(24)
-        .frame(width: 280)
-        .liquidGlass(cornerRadius: 30, opacity: 0.74)
+        .padding(12)
+        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: manager.showLyrics)
         .onAppear {
-            startListening()
             configureWindow()
             setupLockScreenListeners()
         }
         .moveToSky()
     }
 
-    // MARK: - Liquid Morph Animation
+    // MARK: - Player Card Component
+
+    private var playerCardView: some View {
+        ZStack(alignment: .bottom) {
+            RoundedRectangle(cornerRadius: 58, style: .continuous)
+                .fill(Color.black.opacity(0.05))
+                .liquidGlass(cornerRadius: 58, opacity: 0.68)
+
+            VStack(spacing: 14) {
+                HStack {
+                    sourceAppLabel
+                    Spacer()
+
+                    // Lyrics Toggle Button
+                    Button {
+                        manager.showLyrics.toggle()
+                        animateLiquid()
+                    } label: {
+                        Image(systemName: manager.showLyrics ? "quote.bubble.fill" : "quote.bubble")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(manager.showLyrics ? .white : .white.opacity(0.55))
+                            .padding(6)
+                            .background(
+                                Circle()
+                                    .fill(manager.showLyrics ? .white.opacity(0.2) : .clear)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Toggle Lyrics")
+                }
+
+                HStack(alignment: .top, spacing: 18) {
+                    artworkView
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(manager.title)
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+
+                        Text(manager.artist.isEmpty ? manager.album : manager.artist)
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.52))
+                            .lineLimit(1)
+
+                        // Current Synced Lyric Snippet Subtitle
+                        if let currentLine = manager.currentLyric {
+                            Text(currentLine.text)
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.85))
+                                .lineLimit(1)
+                                .transition(.opacity)
+                        }
+                    }
+                    .padding(.top, 16)
+
+                    Spacer(minLength: 18)
+                }
+
+                HStack(spacing: 12) {
+                    Text(formatTime(displayedElapsed))
+                        .frame(width: 44, alignment: .leading)
+
+                    seekSlider
+
+                    Text("-\(formatTime(displayedRemainingTime))")
+                        .frame(width: 50, alignment: .trailing)
+                }
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.45))
+
+                HStack(alignment: .center) {
+                    Image(systemName: "shuffle")
+                        .font(.system(size: 25, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.44))
+
+                    Spacer()
+
+                    HStack(spacing: 72) {
+                        Button {
+                            manager.previousTrack()
+                            animateLiquid()
+                        } label: {
+                            Image(systemName: "backward.fill")
+                                .font(.system(size: 36, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.90))
+                                .frame(width: 48, height: 48)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            manager.togglePlayPause()
+                            animateLiquid()
+                        } label: {
+                            Image(systemName: manager.isPlaying ? "pause.fill" : "play.fill")
+                                .font(.system(size: 43, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.96))
+                                .frame(width: 52, height: 52)
+                                .offset(x: manager.isPlaying ? 0 : 4)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            manager.nextTrack()
+                            animateLiquid()
+                        } label: {
+                            Image(systemName: "forward.fill")
+                                .font(.system(size: 36, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.90))
+                                .frame(width: 48, height: 48)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "repeat")
+                        .font(.system(size: 25, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.44))
+                }
+                .padding(.top, 2)
+            }
+            .padding(.horizontal, 28)
+            .padding(.top, 26)
+            .padding(.bottom, 30)
+
+        }
+        .frame(width: 620, height: 286)
+    }
+
+    private var sourceAppLabel: some View {
+        Group {
+            if !manager.appName.isEmpty {
+                Text(manager.appName)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.58))
+                    .lineLimit(1)
+                    .textCase(.uppercase)
+            }
+        }
+        .frame(height: 16)
+    }
+
+    private var artworkView: some View {
+        Group {
+            if let art = manager.artwork {
+                Image(nsImage: art)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.orange.opacity(0.92), Color.purple.opacity(0.72)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 40, weight: .semibold))
+                            .foregroundStyle(.black.opacity(0.55))
+                    }
+            }
+        }
+        .frame(width: 98, height: 98)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: .black.opacity(0.24), radius: 14, x: 0, y: 8)
+    }
+
+    private var seekSlider: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            let progress = displayedProgress
+            let filledWidth = width * progress
+            let thumbX = min(max(filledWidth, 8), max(width - 8, 8))
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(.white.opacity(0.18))
+                    .frame(height: 8)
+                    .overlay {
+                        Capsule()
+                            .strokeBorder(.white.opacity(0.16), lineWidth: 0.8)
+                    }
+
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [.white.opacity(0.98), .white.opacity(0.72)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: filledWidth, height: 8)
+                    .shadow(color: .white.opacity(0.46), radius: 5, x: 0, y: 0)
+
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 18, height: 18)
+                    .overlay {
+                        Circle()
+                            .fill(.white.opacity(0.42))
+                    }
+                    .overlay {
+                        Circle()
+                            .strokeBorder(.white.opacity(0.86), lineWidth: 0.9)
+                    }
+                    .shadow(color: .black.opacity(0.22), radius: 5, x: 0, y: 2)
+                    .shadow(color: .white.opacity(0.45), radius: 3, x: 0, y: 0)
+                    .offset(x: thumbX - 9)
+                    .opacity(manager.duration > 0 ? 1 : 0)
+            }
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        guard manager.duration > 0, width > 0 else { return }
+                        isSeeking = true
+                        seekProgress = normalizedProgress(for: value.location.x, width: width)
+                    }
+                    .onEnded { value in
+                        guard manager.duration > 0, width > 0 else { return }
+                        let progress = normalizedProgress(for: value.location.x, width: width)
+                        let targetTime = Double(progress) * manager.duration
+                        seekProgress = progress
+                        manager.seek(to: targetTime)
+
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            isSeeking = false
+                        }
+                    }
+            )
+        }
+        .frame(height: 24)
+    }
+
+    private var displayedProgress: CGFloat {
+        if isSeeking {
+            return seekProgress
+        }
+        guard manager.duration > 0 else { return 0 }
+        return max(0, min(CGFloat(manager.estimatedPlaybackPosition / manager.duration), 1))
+    }
+
+    private var displayedElapsed: Double {
+        if isSeeking {
+            return Double(seekProgress) * manager.duration
+        }
+        return manager.estimatedPlaybackPosition
+    }
+
+    private var displayedRemainingTime: Double {
+        max(0, manager.duration - displayedElapsed)
+    }
+
+    private func normalizedProgress(for xPosition: CGFloat, width: CGFloat) -> CGFloat {
+        guard width > 0 else { return 0 }
+        return max(0, min(xPosition / width, 1))
+    }
+
     private func animateLiquid() {
         withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
             liquidOffset = CGSize(
@@ -317,43 +435,6 @@ struct ContentView: View {
                 height: CGFloat.random(in: -20...20)
             )
         }
-    }
-
-    // MARK: - MediaRemoteAdapter Setup
-
-    private func startListening() {
-        controller.onTrackInfoReceived = { trackInfo in
-            guard let info = trackInfo else {
-                title = "Nothing Playing"
-                artist = ""
-                album = ""
-                appName = ""
-                isPlaying = false
-                artwork = nil
-                elapsed = 0
-                duration = 0
-                return
-            }
-
-            let p = info.payload
-            title     = p.title           ?? "Unknown"
-            artist    = p.artist          ?? ""
-            album     = p.album           ?? ""
-            appName   = p.applicationName ?? ""
-            isPlaying = p.isPlaying      ?? false
-            artwork   = p.artwork
-
-            if let d = p.durationMicros  { duration = d / 1_000_000 }
-            if let e = p.currentElapsedTime { elapsed = e }
-            
-            animateLiquid()
-        }
-
-        controller.onListenerTerminated = {
-            print("[MediaRemote] listener terminated")
-        }
-
-        controller.startListening()
     }
 
     // MARK: - Native Window Config & Lock Screen Visibility
@@ -368,8 +449,7 @@ struct ContentView: View {
         window.isMovableByWindowBackground = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         window.level = .floating
-        
-        // Hide window asynchronously on initial launch so AppKit doesn't force it visible
+
         DispatchQueue.main.async {
             window.setIsVisible(false)
             window.orderOut(nil)
@@ -378,8 +458,7 @@ struct ContentView: View {
 
     private func setupLockScreenListeners() {
         let dnc = DistributedNotificationCenter.default()
-        
-        // Fired when Mac screen is locked
+
         dnc.addObserver(
             forName: NSNotification.Name("com.apple.screenIsLocked"),
             object: nil,
@@ -391,8 +470,7 @@ struct ContentView: View {
                 window.orderFrontRegardless()
             }
         }
-        
-        // Fired when Mac screen is unlocked
+
         dnc.addObserver(
             forName: NSNotification.Name("com.apple.screenIsUnlocked"),
             object: nil,
